@@ -1,87 +1,64 @@
 package com.emin.yuce.test.project;
 
-
 import org.apache.commons.collections4.CollectionUtils;
 import org.springframework.stereotype.Service;
 
 import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileReader;
 import java.io.IOException;
+import java.io.LineNumberReader;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 public class JavaFileSearch {
 
-    public  void test() {
-        String directoryPath = "C:\\Users\\eminy\\IdeaProjects\\my-java-development"; // Replace this with your directory path
-        String searchString = "calculateApparentPower"; // The string you want to search for
-        searchString(directoryPath, searchString);
-        System.out.println("Search is DONE");
-        System.exit(1);
+    public void search(String directoryPath, String searchString) {
+        List<Path> javaFiles = findJavaFiles(Paths.get(directoryPath));
+        searchFiles(javaFiles, searchString);
     }
 
+    private List<Path> findJavaFiles(Path directory) {
+        try {
+            return Files.walk(directory)
+                  .filter(path -> path.toString().endsWith(".java"))
+                  .collect(Collectors.toList());
+        } catch (IOException e) {
+            throw new RuntimeException("Error finding Java files", e);
+        }
+    }
 
-    public void searchString(String directoryPath, String searchString) {
-        List<File> javaFiles = findJavaFiles(new File(directoryPath));
-
-        for (File file : javaFiles) {
+    private void searchFiles(List<Path> files, String searchString) {
+        files.forEach(file -> {
             try {
-                List<Integer> lineNumbers = containsStringIndexLine(file.toPath(), searchString);
+                List<Integer> lineNumbers = findStringInFile(file, searchString);
                 if (CollectionUtils.isNotEmpty(lineNumbers)) {
-                    System.out.println("Found '" + searchString + "' in file: " + file.getAbsolutePath() + " LineNumbers:" + lineNumbers);
+                    System.out.println("Found '" + searchString + "' in file: " + file + " LineNumbers: " + lineNumbers);
                 }
             } catch (IOException e) {
-                e.printStackTrace();
+                System.err.println("Error searching file: " + file + " - " + e.getMessage());
             }
-        }
+        });
     }
 
-    private List<File> findJavaFiles(File directory) {
-        List<File> javaFiles = new ArrayList<>();
-        File[] files = directory.listFiles();
-        if (files != null) {
-            for (File file : files) {
-                if (file.isDirectory()) {
-                    javaFiles.addAll(findJavaFiles_v2(file));
-                } else if (file.isFile() && file.getName().endsWith(".java")) {
-                    javaFiles.add(file);
-                }
-            }
-        }
-        return javaFiles;
-    }
-
-    private List<File> findJavaFiles_v2(File directory) {
-        List<File> javaFiles = new ArrayList<>();
-        File[] files = directory.listFiles();
-        if (files != null) {
-            for (File file : files) {
-                if (file.isDirectory()) {
-                    javaFiles.addAll(findJavaFiles(file));
-                } else if (file.isFile() && file.getName().endsWith(".java")) {
-                    javaFiles.add(file);
-                }
-            }
-        }
-        return javaFiles;
-    }
-
-    private List<Integer> containsStringIndexLine(Path file, String searchString) throws IOException {
-        List<Integer> resultLineNumber = new ArrayList<Integer>();
-        try (BufferedReader reader = new BufferedReader(new FileReader(file.toFile()))) {
+    private List<Integer> findStringInFile(Path file, String searchString) throws IOException {
+        List<Integer> result = new ArrayList<>();
+        try (LineNumberReader reader = new LineNumberReader(Files.newBufferedReader(file))) {
             String line;
-            int lineNumber = 0;
-            while ((line = reader.readLine()) != null) {
-                lineNumber++;
+            while ((line = reader.readLine())!= null) {
                 if (line.contains(searchString)) {
-                    resultLineNumber.add(lineNumber);
+                    result.add(reader.getLineNumber());
                 }
             }
         }
-        return resultLineNumber;
+        return result;
+    }
+
+    public static void main(String[] args) {
+        JavaFileSearch search = new JavaFileSearch();
+        search.search("C:\\Users\\eminy\\IdeaProjects\\my-java-development", "calculateApparentPower");
     }
 }
